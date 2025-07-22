@@ -153,6 +153,7 @@ const oldIdTagNameMap = new Map<string, string>()
 const ctxIdMap = new Map<Node, Set<string>>()
 const ctxPersistentIds = new Set<string>()
 const duplicateIds = new Set<string>()
+const activeElementAndParents = new Set<Node>()
 const ctxPantry = document.createElement('div')
 ctxPantry.hidden = true
 
@@ -199,6 +200,14 @@ function morph(
       ctxPersistentIds.add(id)
     }
   }
+
+  activeElementAndParents.clear()
+  let elt = document.activeElement
+  while (elt && elt !== oldElt) {
+    activeElementAndParents.add(elt)
+    elt = elt.parentElement
+  }
+  if (!elt) activeElementAndParents.clear()
 
   oldIdTagNameMap.clear()
 
@@ -406,7 +415,8 @@ function findBestMatch(
 
     // if the current node contains active element, stop looking for better future matches,
     // because if one is found, this node will be moved to the pantry, re-parenting it and thus losing focus
-    if (cursor.contains(document.activeElement)) break
+    // if (cursor.contains(document.activeElement)) break
+    if (activeElementAndParents.has(cursor)) break;
 
     cursor = cursor.nextSibling
   }
