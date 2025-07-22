@@ -404,10 +404,6 @@ function findBestMatch(
       }
     }
 
-    // if the current node contains active element, stop looking for better future matches,
-    // because if one is found, this node will be moved to the pantry, re-parenting it and thus losing focus
-    if (cursor.contains(document.activeElement)) break
-
     cursor = cursor.nextSibling
   }
 
