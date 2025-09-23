@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-demo-nonce-123' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net">
+    <meta name="csp-nonce" content="demo-nonce-123">
+    <title>Secure Datastar Demo</title>
+    <style>
+        .test-section { border: 2px solid #333; margin: 20px 0; padding: 15px; }
+        .valid { background: #e8f5e8; }
+        .invalid { background: #ffe8e8; }
+        .result { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Secure Datastar Extension Demo</h1>
+    <p>Page Nonce: <code>demo-nonce-123</code></p>
+    
+    <div class="test-section valid">
+        <h2>✅ Valid Tests (Should Work)</h2>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="/*nonce:demo-nonce-123*/console.log('Valid click handler')">
+                Valid Click Handler
+            </button>
+            <code style="background: #f5f5f5; padding: 5px;">data-on-click="/*nonce:demo-nonce-123*/console.log('Valid click handler')"</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <div data-text="/*nonce:demo-nonce-123*/$count" style="padding: 8px; border: 1px solid #ccc;">
+                Loading...
+            </div>
+            <code style="background: #f5f5f5; padding: 5px;">data-text="/*nonce:demo-nonce-123*/$count"</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="/*nonce:demo-nonce-123*/$count++">
+                Increment Counter
+            </button>
+            <code style="background: #f5f5f5; padding: 5px;">data-on-click="/*nonce:demo-nonce-123*/$count++"</code>
+        </div>
+    </div>
+
+    <div class="test-section invalid">
+        <h2>❌ Invalid Tests (Should Be Blocked)</h2>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="console.log('No nonce - should be blocked')">
+                No Nonce Handler
+            </button>
+            <code style="background: #f5f5f5; padding: 5px;">data-on-click="console.log('No nonce - should be blocked')"</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="/*nonce:wrong-nonce*/console.log('Wrong nonce')">
+                Wrong Nonce Handler
+            </button>
+            <code style="background: #f5f5f5; padding: 5px;">data-on-click="/*nonce:wrong-nonce*/console.log('Wrong nonce')"</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <div data-text="$count + 1" style="padding: 8px; border: 1px solid #ccc;">
+                Should not work
+            </div>
+            <code style="background: #f5f5f5; padding: 5px;">data-text="$count + 1" (no nonce)</code>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 Server Response Tests</h2>
+        <div id="results" class="result">Click buttons below to test server responses...</div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-get="/test-nonce-valid" data-target="#results">Test Valid Server Response</button>
+            <code style="background: #f5f5f5; padding: 5px;">Returns content with valid server nonce</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-get="/test-nonce-invalid" data-target="#results">Test Invalid Server Response</button>
+            <code style="background: #f5f5f5; padding: 5px;">Returns content with invalid nonces</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-get="/test-script-tags" data-target="#results">Test Script Tags</button>
+            <code style="background: #f5f5f5; padding: 5px;">Returns script tags with/without nonces</code>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Console Output</h2>
+        <p>Open browser console to see security validation results</p>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="/*nonce:demo-nonce-123*/console.clear()">Clear Console</button>
+            <code style="background: #f5f5f5; padding: 5px;">data-on-click="/*nonce:demo-nonce-123*/console.clear()"</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="/*nonce:demo-nonce-123*/console.log('Nonce status:', window.datastartSecure?.getPageLoadNonce())">
+                Check Nonce Status
+            </button>
+            <code style="background: #f5f5f5; padding: 5px;">Log current nonce status</code>
+        </div>
+    </div>
+
+    <!-- Sinon.js for mocking -->
+    <script nonce="demo-nonce-123" src="https://cdn.jsdelivr.net/npm/sinon@17/pkg/sinon.js"></script>
+    <!-- Setup mocks before Datastar loads -->
+    <script nonce="demo-nonce-123">
+        // Initialize counter signal
+        window.datastartNonce = 'demo-nonce-123';
+        
+        // Sinon.js mock setup
+        const server = sinon.createFakeServer()
+        server.autoRespond = true
+        server.autoRespondAfter = 100
+        
+        // Mock routes for Datastar
+        server.respondWith('GET', /\/test-nonce-valid(\?.*)?$/, function(xhr) {
+          xhr.respond(200, 
+            { 'Content-Type': 'text/html', 'Datastar-Nonce': 'server-nonce-123' },
+            `<div>
+              <h4>✅ Valid Nonce Response Test</h4>
+              <p><strong>Server sends Datastar-Nonce header:</strong> server-nonce-123</p>
+              <p><strong>Extension converts server nonce to page nonce in returned HTML</strong></p>
+              <hr>
+              <h5>Returned Elements (server nonce gets converted to page nonce):</h5>
+              <div data-on-click="/*nonce:server-nonce-123*/console.log('Valid server nonce clicked')" style="border: 1px solid green; padding: 5px; margin: 5px; cursor: pointer;">
+                ✅ Valid Click Handler: <code>data-on-click="/*nonce:server-nonce-123*/console.log('Valid server nonce clicked')"</code>
+              </div>
+              <div data-text="/*nonce:server-nonce-123*/'Server response: ' + $count" style="border: 1px solid green; padding: 5px; margin: 5px;">
+                ✅ Valid Text Binding: <code>data-text="/*nonce:server-nonce-123*/'Server response: ' + $count"</code>
+              </div>
+            </div>`
+          )
+        })
+        
+        server.respondWith('GET', /\/test-nonce-invalid(\?.*)?$/, [
+          200,
+          { 'Content-Type': 'text/html' },
+          `<div>
+            <h4>❌ Invalid Nonce Response Test</h4>
+            <p><strong>No Datastar-Nonce header sent by server</strong></p>
+            <p><strong>Extension should block these elements:</strong></p>
+            <hr>
+            <div data-on-click="/*nonce:wrong-nonce-456*/console.log('Invalid nonce clicked')" style="border: 1px solid red; padding: 5px; margin: 5px; cursor: pointer;">
+              ❌ Wrong Nonce (should be blocked): <code>data-on-click="/*nonce:wrong-nonce-456*/console.log('Invalid nonce clicked')"</code>
+            </div>
+            <div data-text="$count + ' - no nonce'" style="border: 1px solid red; padding: 5px; margin: 5px;">
+              ❌ No Nonce (should be blocked): <code>data-text="$count + ' - no nonce'"</code>
+            </div>
+            <p><em>If you can click these and see console output, the security extension failed!</em></p>
+          </div>`
+        ])
+        
+        server.respondWith('GET', /\/test-script-tags(\?.*)?$/, function(xhr) {
+          xhr.respond(200,
+            { 'Content-Type': 'text/html', 'Datastar-Nonce': 'server-script-nonce' },
+            `<div>
+              <h4>🔄 Script Tags Test</h4>
+              <p><strong>Server sends Datastar-Nonce:</strong> server-script-nonce</p>
+              <p><strong>Tests script tag handling</strong></p>
+              <hr>
+              <h5>Script Tags (only nonce-valid should execute):</h5>
+              <script nonce="demo-nonce-123">console.log('✅ Valid script with page nonce executed')<\/script>
+              <script>console.log('❌ Script without nonce - should be blocked')<\/script>
+              <script nonce="wrong-nonce">console.log('❌ Script with wrong nonce - should be blocked')<\/script>
+              <hr>
+              <h5>Datastar Elements:</h5>
+              <div data-on-click="/*nonce:server-script-nonce*/console.log('Script test click')" style="border: 1px solid green; padding: 5px; margin: 5px; cursor: pointer;">
+                ✅ Valid Click Handler: <code>data-on-click="/*nonce:server-script-nonce*/console.log('Script test click')"</code>
+              </div>
+            </div>`
+          )
+        })
+    </script>
+    
+    <!-- Load Security Extension first -->
+    <script nonce="demo-nonce-123" src="secure-datastar.js"></script>
+    
+    <!-- Load Datastar from CDN -->
+    <script nonce="demo-nonce-123" type="module">
+        import { load, apply } from 'https://cdn.jsdelivr.net/gh/starfederation/datastar@main/bundles/datastar.js';
+        
+        // Make available globally for demo
+        window.datastar = { load, apply };
+        
+        // Initialize Datastar
+        load();
+        apply();
+        
+        // Set initial counter value
+        setTimeout(() => {
+            console.log('✅ Datastar loaded successfully!');
+            console.log('🔒 Security extension active - nonce validation enabled');
+            console.log('📊 Try clicking the buttons to test security');
+        }, 100);
+    </script>
+</body>
+</html>
