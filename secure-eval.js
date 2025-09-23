@@ -83,22 +83,59 @@ function validatePageLoadNonces(rootElt) {
   })
 }
 
-// Main API function
-function secureEval(elt, code, paramName, param, thisArg, defaultVal) {
-  const pageNonce = getPageLoadNonce()
-  if (!pageNonce) return defaultVal
-
-  const nonceComment = `/*nonce:${pageNonce}*/`
-  if (code.includes(nonceComment)) {
-    const cleanCode = code.replaceAll(nonceComment, '')
-    return executeWithPageNonce(cleanCode, paramName, param, thisArg)
-  }
-  return defaultVal
-}
-
 htmx.defineExtension('secure-eval', {
   init: function(apiRef) {
-    apiRef.maybeEval = secureEval
+    // Override Function constructor to intercept htmx usage
+    const originalFunction = window.Function
+    window.Function = function(...args) {
+      const code = args[args.length - 1]
+      const params = args.slice(0, -1)
+      
+      if (code && typeof code === 'string') {
+        // Detect htmx code patterns
+        const isHtmxCode = 
+          code.includes('event') ||                                 // Event handlers
+          code.includes('return (') ||                              // Expression evaluation
+          (params.includes('event') && params.length === 1) ||     // Event handler pattern
+          code.includes('window.') ||                               // Window references
+          (params.length === 0 && code.includes('return')) ||      // Simple return expressions
+          code.includes('this.') ||                                 // Context references
+          (params.includes('el') && code.includes('.'))             // Element property access
+        
+        if (isHtmxCode) {
+          const pageNonce = getPageLoadNonce()
+          
+          let hasValidNonce = false
+          let cleanCode = code
+          
+          if (pageNonce) {
+            const pageNonceComment = `/*nonce:${pageNonce}*/`
+            if (code.includes(pageNonceComment)) {
+              cleanCode = code.replaceAll(pageNonceComment, '')
+              hasValidNonce = true
+            }
+          }
+          
+          if (!hasValidNonce) {
+            throw new Error('Unsafe htmx expression blocked - missing valid nonce')
+          }
+          
+          return function(...values) {
+            return executeWithPageNonce(cleanCode, params.join(','), values[0], this)
+          }
+        }
+      }
+      
+      // Allow other Function constructor calls
+      return originalFunction.apply(this, args)
+    }
+    
+    // Copy static properties to maintain Function constructor behavior
+    Object.setPrototypeOf(window.Function, originalFunction)
+    Object.defineProperty(window.Function, 'prototype', {
+      value: originalFunction.prototype,
+      writable: false
+    })
   },
 
   transformResponse: function(text, xhr, elt) {
@@ -148,7 +185,5 @@ htmx.defineExtension('secure-eval', {
       })
     }
     return true
-  },
-
-  isGlobal: true
+  }
 })
