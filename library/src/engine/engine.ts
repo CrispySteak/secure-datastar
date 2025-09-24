@@ -1,5 +1,6 @@
 import { isHTMLOrSVG } from '../utils/dom'
 import { isPojo, pathToObj } from '../utils/paths'
+import { secureEval } from '../utils/secure-eval'
 import { camel, snake } from '../utils/text'
 import { DATASTAR, DSP, DSS } from './consts'
 import { initErr, runtimeErr } from './errors'
@@ -1187,16 +1188,12 @@ function generateReactiveExpression(
   ctx.fnContent = expr
 
   try {
-    const fn = Function(
-      'el',
-      '$',
-      ...(attrPlugin?.argNames || []),
-      ...actionNames,
-      expr,
-    )
+    const paramNames = ['el', '$', ...(attrPlugin?.argNames || []), ...actionNames]
+    
     return (...args: any[]) => {
       try {
-        return fn(ctx.el, root, ...args, ...actionFns)
+        const paramValues = [ctx.el, root, ...args, ...actionFns]
+        return secureEval(expr, paramNames, paramValues)
       } catch (e: any) {
         throw ctx.runtimeErr('ExecuteExpression', {
           error: e.message,

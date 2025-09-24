@@ -1,4 +1,5 @@
 import type { Modifiers } from '../engine/types'
+import { secureEval } from './secure-eval'
 
 export const isBoolString = (str: string) => str.trim() === 'true'
 
@@ -22,8 +23,7 @@ export const jsStrToObject = (raw: string) => {
     return JSON.parse(raw)
   } catch {
     // If JSON parsing fails, try to evaluate as a JavaScript object
-    // This is less safe and should be used with caution
-    return Function(`return (${raw})`)()
+    return secureEval(raw, [], [])
   }
 }
 
