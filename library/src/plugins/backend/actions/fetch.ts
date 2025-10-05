@@ -13,7 +13,7 @@ import type {
   SignalFilterOptions,
 } from '../../../engine/types'
 import { kebab } from '../../../utils/text'
-import { extractAndSetServerNonce, transformResponseContent } from '../../../utils/nonce-interceptor'
+
 import {
   DATASTAR_FETCH_EVENT,
   type DatastarFetchEvent,
@@ -162,8 +162,7 @@ const fetcher = async (
         const argsRaw = Object.fromEntries(
           Object.entries(argsRawLines).map(([k, v]) => {
             const content = v.join('\n')
-            // Transform content that might contain nonces (like elements)
-            return [k, k === 'elements' ? transformResponseContent(content) : content]
+            return [k, content]
           }),
         )
 
@@ -625,13 +624,10 @@ function fetchEventSource(
           overrides?: ResponseOverrides,
           ...argNames: string[]
         ) => {
-          const serverNonce = extractAndSetServerNonce(response)
-          
           const responseText = await response.text()
-          const transformedText = transformResponseContent(responseText, serverNonce)
           
           const argsRaw: Record<string, string> = {
-            [name]: transformedText,
+            [name]: responseText,
           }
           for (const n of argNames) {
             let v = response.headers.get(`datastar-${kebab(n)}`)
@@ -671,8 +667,6 @@ function fetchEventSource(
         }
 
         if (ct?.includes('text/javascript')) {
-          const serverNonce = extractAndSetServerNonce(response)
-          
           const script = document.createElement('script')
           const scriptAttributesHeader = response.headers.get(
             'datastar-script-attributes',
@@ -687,8 +681,7 @@ function fetchEventSource(
           }
           
           const responseText = await response.text()
-          const transformedText = transformResponseContent(responseText, serverNonce)
-          script.textContent = transformedText
+          script.textContent = responseText
           document.head.appendChild(script)
           dispose()
           return

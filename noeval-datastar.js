@@ -1,0 +1,75 @@
+/**
+ * No-eval Datastar Security Extension
+ * Uses script-src 'strict-dynamic' with static hash for secure CSP
+ * 
+ * Usage: <meta http-equiv="Content-Security-Policy" 
+ *               content="script-src 'sha256-[HASH_OF_THIS_SCRIPT]' 'strict-dynamic'">
+ */
+(function() {
+  'use strict';
+  
+  let evalCounter = 0;
+  
+  // Execute code using unsafe-inline (no nonces needed)
+  function executeCode(code, args = [], values = []) {
+    const script = document.createElement('script');
+    const funcVar = 'datastar_func_' + (++evalCounter);
+    
+    // Handle both expression and statement code
+    let wrappedCode;
+    if (code.trim().startsWith('return ')) {
+      wrappedCode = `window.${funcVar} = function(${args.join(',')}) { ${code} }`;
+    } else {
+      wrappedCode = `window.${funcVar} = function(${args.join(',')}) { return (${code}); }`;
+    }
+    
+    script.textContent = wrappedCode;
+    document.head.appendChild(script);
+    
+    try {
+      if (typeof window[funcVar] !== 'function') {
+        throw new Error(`Failed to create function: ${funcVar}`);
+      }
+      return window[funcVar](...values);
+    } finally {
+      delete window[funcVar];
+      document.head.removeChild(script);
+    }
+  }
+  
+  // Override Function constructor to intercept Datastar usage
+  const originalFunction = window.Function;
+  window.Function = function(...args) {
+    const code = args[args.length - 1];
+    const params = args.slice(0, -1);
+    
+    if (code && typeof code === 'string') {
+      // Detect Datastar code patterns
+      const isDatastarCode = 
+        code.includes('$[') ||
+        code.includes('return (') ||
+        (params.includes('el') && params.includes('$')) ||
+        code.includes('ctx.el') ||
+        code.includes('root');
+      
+      if (isDatastarCode) {
+        const cleanCode = code;
+        
+        return function(...values) {
+          return executeCode(cleanCode, params, values);
+        };
+      }
+    }
+    
+    // Allow other Function constructor calls
+    return originalFunction.apply(this, args);
+  };
+  
+  // Copy static properties
+  Object.setPrototypeOf(window.Function, originalFunction);
+  Object.defineProperty(window.Function, 'prototype', {
+    value: originalFunction.prototype,
+    writable: false
+  });
+  
+})();

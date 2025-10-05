@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datastar Strict-Dynamic Test</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'sha256-1NmBVpaFOL9GwW6BXg4+mA35d7M87YNo1ZNtuXe+YNU=' 'strict-dynamic'">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { padding: 10px; background: #f9f9f9; border-radius: 3px; margin: 10px 0; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        input { padding: 8px; margin: 5px; }
+        code { background: #f5f5f5; padding: 2px 5px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Datastar with Strict-Dynamic CSP</h1>
+    <p>This page uses <code>script-src 'sha256-hash' 'strict-dynamic'</code> - no nonces needed!</p>
+
+    <div class="test-section">
+        <h2>🎯 Basic Reactivity Tests</h2>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="$count = ($count || 0) + 1">Click Counter</button>
+            <div data-text="'Clicked ' + ($count || 0) + ' times'" style="padding: 8px; border: 1px solid #ccc;"></div>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <input data-bind-name placeholder="Enter your name">
+            <div data-text="$name ? 'Hello ' + $name : 'Enter a name'" style="padding: 8px; border: 1px solid #ccc;"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 Server Response Tests</h2>
+        <div id="results" class="result">Click buttons below to test server responses...</div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="@get('/test-response')">Test Server Response</button>
+            <code style="background: #f5f5f5; padding: 5px;">Returns HTML content</code>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="@get('/test-json')">Test JSON Response</button>
+            <code style="background: #f5f5f5; padding: 5px;">Returns JSON data</code>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Console Output</h2>
+        <p>Open browser console to see execution results</p>
+        <div style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
+            <button data-on-click="console.clear()">Clear Console</button>
+            <button data-on-click="console.log('Strict-dynamic works!', new Date())">Log Message</button>
+        </div>
+    </div>
+
+    <!-- Trusted script with hash - loads local Datastar bundle -->
+    <script>
+// Mock server responses
+const originalFetch = window.fetch;
+window.fetch = async function(url, options = {}) {
+  console.log('Fetch intercepted:', url);
+  
+  if (url.includes('/test-response')) {
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({'Content-Type': 'text/html'}),
+      text: () => Promise.resolve(`
+        <div id="results">
+          <h4>✅ Server Response Test</h4>
+          <p><strong>Dynamic content loaded successfully!</strong></p>
+          <div data-on-click="$serverClicks = ($serverClicks || 0) + 1" style="border: 1px solid green; padding: 5px; margin: 5px; cursor: pointer;">
+            Click me: <span data-text="$serverClicks || 0"></span> times
+          </div>
+          <input data-bind-serverInput placeholder="Type something">
+          <div data-text="$serverInput ? 'You typed: ' + $serverInput : 'Type above'" style="padding: 5px; margin: 5px; border: 1px solid #ccc;"></div>
+        </div>
+      `)
+    };
+  }
+  
+  if (url.includes('/test-json')) {
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({'Content-Type': 'application/json'}),
+      text: () => Promise.resolve('{"message": "JSON response", "timestamp": "' + new Date().toISOString() + '", "data": {"count": 42}}')
+    };
+  }
+  
+  return originalFetch.apply(this, arguments);
+};
+
+// Load local Datastar bundle dynamically (trusted by strict-dynamic)
+const datastartScript = document.createElement('script');
+datastartScript.type = 'module';
+datastartScript.src = './library/dist/bundles/datastar.bundle.js';
+document.head.appendChild(datastartScript);
+
+// Initialize after load
+datastartScript.onload = () => {
+  console.log('✅ Datastar loaded with strict-dynamic CSP!');
+  console.log('🔒 No nonces required - dynamic scripts inherit trust');
+  console.log('📊 Try the interactive elements above');
+};
+    </script>
+</body>
+</html>
