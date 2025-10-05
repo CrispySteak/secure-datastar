@@ -13,7 +13,6 @@ import type {
   SignalFilterOptions,
 } from '../../../engine/types'
 import { kebab } from '../../../utils/text'
-
 import {
   DATASTAR_FETCH_EVENT,
   type DatastarFetchEvent,
@@ -160,10 +159,7 @@ const fetcher = async (
         }
 
         const argsRaw = Object.fromEntries(
-          Object.entries(argsRawLines).map(([k, v]) => {
-            const content = v.join('\n')
-            return [k, content]
-          }),
+          Object.entries(argsRawLines).map(([k, v]) => [k, v.join('\n')]),
         )
 
         dispatchFetch(type, el, argsRaw)
@@ -624,10 +620,8 @@ function fetchEventSource(
           overrides?: ResponseOverrides,
           ...argNames: string[]
         ) => {
-          const responseText = await response.text()
-          
           const argsRaw: Record<string, string> = {
-            [name]: responseText,
+            [name]: await response.text(),
           }
           for (const n of argNames) {
             let v = response.headers.get(`datastar-${kebab(n)}`)
@@ -679,9 +673,7 @@ function fetchEventSource(
               script.setAttribute(name, value as string)
             }
           }
-          
-          const responseText = await response.text()
-          script.textContent = responseText
+          script.textContent = await response.text()
           document.head.appendChild(script)
           dispose()
           return
